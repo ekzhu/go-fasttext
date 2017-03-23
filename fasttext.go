@@ -149,8 +149,10 @@ func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
 		defer close(out)
 		scanner := bufio.NewScanner(wordEmbFile)
 		var embSize int
+		var line int
 		for scanner.Scan() {
-			data := strings.TrimSpace(scanner.Text())
+			line++
+			data := scanner.Text()
 			if embSize == 0 {
 				var err error
 				embSize, err = strconv.Atoi(strings.Split(data, " ")[1])
@@ -159,14 +161,22 @@ func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
 				}
 				continue
 			}
-			items := strings.Split(data, " ")
+			// Get the word
+			items := strings.SplitN(data, " ", 2)
 			word := items[0]
-			if len(items)-1 != embSize {
-				panic("Embedding vector size not the same")
+			if word == "" {
+				word = " "
+			}
+			// Get the vec
+			vecStrs := strings.Split(strings.TrimSpace(items[1]), " ")
+			if len(vecStrs) != embSize {
+				msg := fmt.Sprintf("Embedding vec size not same: expected %d, got %d. Loc: line %d, word %s",
+					embSize, len(vecStrs), line, word)
+				panic(msg)
 			}
 			vec := make([]float64, embSize)
 			for i := 0; i < embSize; i++ {
-				sf, err := strconv.ParseFloat(items[i+1], 64)
+				sf, err := strconv.ParseFloat(vecStrs[i], 64)
 				if err != nil {
 					panic(err)
 				}
