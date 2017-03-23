@@ -11,13 +11,16 @@ After downloading a .vec data file from the fastText project,
 you can initialize the Sqlite3 database (in your code):
 
 	ft := NewFastText("/path/to/sqlite3/file")
-	ft.BuilDB("/path/to/word/embedding/.vec/file")
+	err := ft.BuilDB("/path/to/word/embedding/.vec/file")
 
 This will create a new file on your disk for the Sqlite3 database.
 Once the above step is finished, you can start looking up word embeddings
 (in your code):
 
-	emb := ft.GetEmb("king")
+	emb, err := ft.GetEmb("king")
+	if err != nil {
+		fmt.Println(err)
+	}
 	fmt.Println(emb.Word, emb.Vec)
 
 Each word embedding vector is a slice of float64.
