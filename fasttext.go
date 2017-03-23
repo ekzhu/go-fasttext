@@ -7,7 +7,7 @@ Installation
 
 	go get -u github.com/ekzhu/go-fasttext
 
-After you download a .vec data file from the fastText project,
+After downloading a .vec data file from the fastText project,
 you can initialize the Sqlite3 database (in your code):
 
 	ft := NewFastText("/path/to/sqlite3/file")
