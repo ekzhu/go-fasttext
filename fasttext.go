@@ -46,6 +46,7 @@ import (
 const (
 	// Table name used in Sqlite
 	TableName = "fasttext"
+	Dim       = 300
 )
 
 var (
