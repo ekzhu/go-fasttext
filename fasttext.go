@@ -80,8 +80,10 @@ func NewFastText(dbFilename string) *FastText {
 }
 
 // NewFastTextInMem creates a new FastText session that uses
-// an in-memory SQLite3 database, given the location of the 
-// SQLite3 database file on disk.
+// an in-memory database for faster query time. 
+// The on-disk SQLite3 database (given by dbFilename) will be loaded into
+// an in-memory SQLite3 database in this function, which
+// will take a few miniutes to finish.
 func NewFastTextInMem(dbFilename string) *FastText {
 	db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	_, err = db.Exec(fmt.Sprintf(`ATTACH DATABASE '%s' AS disk;`, dbFilename))
