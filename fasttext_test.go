@@ -25,7 +25,7 @@ func Test_BuildDB_and_GetEmb(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		t.Log(emb.Word, emb.Vec)
+		t.Log(emb)
 	}
 
 	notExist := []string{"NotExist1", "Happiness"}

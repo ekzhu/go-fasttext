@@ -21,7 +21,7 @@ Once the above step is finished, you can start looking up word embeddings
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(emb.Word, emb.Vec)
+	fmt.Println(emb)
 
 Each word embedding vector is a slice of float64.
 
@@ -61,8 +61,8 @@ type FastText struct {
 	byteOrder binary.ByteOrder
 }
 
-// WordEmb is a pair of word and its embedding vector.
-type WordEmb struct {
+// wordEmb is a pair of word and its embedding vector.
+type wordEmb struct {
 	Word string
 	Vec  []float64
 }
@@ -87,7 +87,7 @@ func (ft *FastText) Close() error {
 }
 
 // GetEmb returns the word embedding of the given word.
-func (ft *FastText) GetEmb(word string) (*WordEmb, error) {
+func (ft *FastText) GetEmb(word string) ([]float64, error) {
 	var binVec []byte
 	err := ft.db.QueryRow(fmt.Sprintf(`
 	SELECT emb FROM %s WHERE word=?;
@@ -98,14 +98,7 @@ func (ft *FastText) GetEmb(word string) (*WordEmb, error) {
 	if err != nil {
 		panic(err)
 	}
-	vec, err := bytesToVec(binVec, ft.byteOrder)
-	if err != nil {
-		return nil, err
-	}
-	return &WordEmb{
-		Word: word,
-		Vec:  vec,
-	}, nil
+	return bytesToVec(binVec, ft.byteOrder)
 }
 
 // BuilDB initialize the Sqlite database by importing the word embeddings
@@ -128,7 +121,7 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 		return err
 	}
 	defer stmt.Close()
-	for emb := range readWordEmbdFile(wordEmbFile) {
+	for emb := range readwordEmbdFile(wordEmbFile) {
 		binVec := vecToBytes(emb.Vec, ft.byteOrder)
 		if _, err := stmt.Exec(emb.Word, binVec); err != nil {
 			return err
@@ -144,8 +137,8 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 	return nil
 }
 
-func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
-	out := make(chan *WordEmb)
+func readwordEmbdFile(wordEmbFile io.Reader) chan *wordEmb {
+	out := make(chan *wordEmb)
 	go func() {
 		defer close(out)
 		scanner := bufio.NewScanner(wordEmbFile)
@@ -183,7 +176,7 @@ func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
 				}
 				vec[i] = sf
 			}
-			out <- &WordEmb{
+			out <- &wordEmb{
 				Word: word,
 				Vec:  vec,
 			}
