@@ -4,5 +4,7 @@
 
 [Documentation](https://godoc.org/github.com/ekzhu/go-fasttext)
 
-This package provides a simple wrapper for the Facebook
-[fastText dataset](git@github.com:ekzhu/go-fasttext.git).
+This package provides an Go API for the Facebook's
+[fastText dataset](git@github.com:ekzhu/go-fasttext.git)
+for word embeddings, with data stored in a persistent
+SQLite database.

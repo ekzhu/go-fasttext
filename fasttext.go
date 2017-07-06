@@ -1,19 +1,19 @@
 /*
 Package fasttext provides a simple wrapper for Facebook
 fastText dataset (https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md).
-It allows fast look-up of word embeddings from persistent data store (Sqlite3).
+It allows fast look-up of word embeddings from persistent data store (SQLite3).
 
 Installation
 
 	go get -u github.com/ekzhu/go-fasttext
 
 After downloading a .vec data file from the fastText project,
-you can initialize the Sqlite3 database (in your code):
+you can initialize the SQLite3 database (in your code):
 
 	ft := NewFastText("/path/to/sqlite3/file")
 	err := ft.BuilDB("/path/to/word/embedding/.vec/file")
 
-This will create a new file on your disk for the Sqlite3 database.
+This will create a new file on your disk for the SQLite3 database.
 Once the above step is finished, you can start looking up word embeddings
 (in your code):
 
@@ -23,10 +23,18 @@ Once the above step is finished, you can start looking up word embeddings
 	}
 	fmt.Println(emb)
 
-Each word embedding vector is a slice of float64.
+Each word embedding vector is a slice of float64 with length of 300.
 
-Note that you only need to initialize the Sqlite3 database once.
+Note that you only need to initialize the SQLite3 database once.
 The next time you use it you can skip the call to BuildDB.
+
+For faster querying during runtime, you can use an in-memory database.
+
+	ft := NewFastTextInMemory("/path/to/sqlite3/file")
+
+This creates an in-memory SQLite3 database which is a copy of the 
+on-disk one. Using the in-memory version makes query time much faster,
+but takes a few minutes to load the database.
 */
 package fasttext
 
@@ -45,7 +53,7 @@ import (
 )
 
 const (
-	// TableName used in Sqlite
+	// TableName used in SQLite3
 	TableName = "fasttext"
 	// Dim is the number of dimensions in FastText word embedding vectors
 	Dim       = 300
@@ -122,7 +130,7 @@ func (ft *FastText) GetEmb(word string) ([]float64, error) {
 	return bytesToVec(binVec, ByteOrder)
 }
 
-// BuildDB initialize the Sqlite database by importing the word embeddings
+// BuildDB initialize the SQLite3 database by importing the word embeddings
 // from the .vec file downloaded from
 // https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md
 func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
