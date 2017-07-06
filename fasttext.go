@@ -30,7 +30,7 @@ The next time you use it you can skip the call to BuildDB.
 
 For faster querying during runtime, you can use an in-memory database.
 
-	ft := NewFastTextInMemory("/path/to/sqlite3/file")
+	ft := NewFastTextInMem("/path/to/sqlite3/file")
 
 This creates an in-memory SQLite3 database which is a copy of the 
 on-disk one. Using the in-memory version makes query time much faster,
