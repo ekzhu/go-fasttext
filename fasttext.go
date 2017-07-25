@@ -10,7 +10,12 @@ Installation
 After downloading a .vec data file from the fastText project,
 you can initialize the Sqlite3 database (in your code):
 
-	ft := NewFastText("/path/to/sqlite3/file")
+	import (
+		_ "github.com/mattn/go-sqlite3"
+		"github.com/ekzhu/go-fasttext"
+	)
+	...
+	ft := fasttext.NewFastText("/path/to/sqlite3/file")
 	err := ft.BuilDB("/path/to/word/embedding/.vec/file")
 
 This will create a new file on your disk for the Sqlite3 database.
@@ -39,8 +44,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 const (

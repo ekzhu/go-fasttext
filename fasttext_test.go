@@ -3,6 +3,8 @@ package fasttext
 import (
 	"os"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func Test_BuildDB_and_GetEmb(t *testing.T) {
