@@ -1,14 +1,14 @@
 /*
 Package fasttext provides a simple wrapper for Facebook
 fastText dataset (https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md).
-It allows fast look-up of word embeddings from persistent data store (Sqlite3).
+It allows fast look-up of word embeddings from persistent data store (SQLite3).
 
 Installation
 
 	go get -u github.com/ekzhu/go-fasttext
 
 After downloading a .vec data file from the fastText project,
-you can initialize the Sqlite3 database (in your code):
+you can initialize the SQLite3 database (in your code):
 
 	import (
 		_ "github.com/mattn/go-sqlite3"
@@ -18,7 +18,7 @@ you can initialize the Sqlite3 database (in your code):
 	ft := fasttext.NewFastText("/path/to/sqlite3/file")
 	err := ft.BuilDB("/path/to/word/embedding/.vec/file")
 
-This will create a new file on your disk for the Sqlite3 database.
+This will create a new file on your disk for the SQLite3 database.
 Once the above step is finished, you can start looking up word embeddings
 (in your code):
 
@@ -26,12 +26,20 @@ Once the above step is finished, you can start looking up word embeddings
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(emb.Word, emb.Vec)
+	fmt.Println(emb)
 
-Each word embedding vector is a slice of float64.
+Each word embedding vector is a slice of float64 with length of 300.
 
-Note that you only need to initialize the Sqlite3 database once.
+Note that you only need to initialize the SQLite3 database once.
 The next time you use it you can skip the call to BuildDB.
+
+For faster querying during runtime, you can use an in-memory database.
+
+	ft := NewFastTextInMem("/path/to/sqlite3/file")
+
+This creates an in-memory SQLite3 database which is a copy of the
+on-disk one. Using the in-memory version makes query time much faster,
+but takes a few minutes to load the database.
 */
 package fasttext
 
@@ -47,108 +55,121 @@ import (
 )
 
 const (
-	// Table name used in Sqlite
+	// TableName used in SQLite3
 	TableName = "fasttext"
-	Dim       = 300
+	// Dim is the number of dimensions in FastText word embedding vectors
+	Dim = 300
 )
 
 var (
+	// ErrNoEmbFound ...
 	ErrNoEmbFound = errors.New("No embedding found for the given word")
-	// TODO: parametrize byte order
+	// ByteOrder is for the serialization of the embedding vector in
+	// SQLite3 database.
 	ByteOrder = binary.BigEndian
 )
 
+// The FastText session.
+// In multi-thread setting, each thread must have its own copy of
+// FastText session. A single FastText session cannot be shared
+// among multiple threads.
 type FastText struct {
-	db        *sql.DB
-	tablename string
-	byteOrder binary.ByteOrder
+	db *sql.DB
 }
 
-// WordEmb is a pair of word and its embedding vector.
-type WordEmb struct {
-	Word string
-	Vec  []float64
-}
-
-// Start a new FastText session given the location
-// of the Sqlite3 database file.
+// NewFastText starts a new FastText session given the location
+// of the SQLite3 database file.
 func NewFastText(dbFilename string) *FastText {
 	db, err := sql.Open("sqlite3", dbFilename)
 	if err != nil {
 		panic(err)
 	}
 	return &FastText{
-		db:        db,
-		tablename: TableName,
-		byteOrder: ByteOrder,
+		db: db,
 	}
 }
 
-// Close must be called before finishing using FastText
+// NewFastTextInMem creates a new FastText session that uses
+// an in-memory database for faster query time.
+// The on-disk SQLite3 database (given by dbFilename) will be loaded into
+// an in-memory SQLite3 database in this function, which
+// will take a few miniutes to finish.
+func NewFastTextInMem(dbFilename string) *FastText {
+	db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	_, err = db.Exec(fmt.Sprintf(`ATTACH DATABASE '%s' AS disk;`, dbFilename))
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec(`CREATE TABLE fasttext AS SELECT * FROM disk.fasttext;`)
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec(`CREATE INDEX inx_ft ON fasttext(word);`)
+	if err != nil {
+		panic(err)
+	}
+	return &FastText{
+		db: db,
+	}
+}
+
+// Close must be called before finishing using this FastText
+// session.
 func (ft *FastText) Close() error {
 	return ft.db.Close()
 }
 
 // GetEmb returns the word embedding of the given word.
-func (ft *FastText) GetEmb(word string) (*WordEmb, error) {
+func (ft *FastText) GetEmb(word string) ([]float64, error) {
 	var binVec []byte
-	err := ft.db.QueryRow(fmt.Sprintf(`
-	SELECT emb FROM %s WHERE word=?;
-	`, ft.tablename), word).Scan(&binVec)
+	err := ft.db.QueryRow(`SELECT emb FROM fasttext WHERE word=?;`, word).Scan(&binVec)
 	if err == sql.ErrNoRows {
 		return nil, ErrNoEmbFound
 	}
 	if err != nil {
 		panic(err)
 	}
-	vec, err := bytesToVec(binVec, ft.byteOrder)
-	if err != nil {
-		return nil, err
-	}
-	return &WordEmb{
-		Word: word,
-		Vec:  vec,
-	}, nil
+	return bytesToVec(binVec, ByteOrder)
 }
 
-// BuilDB initialize the Sqlite database by importing the word embeddings
+// BuildDB initialize the SQLite3 database by importing the word embeddings
 // from the .vec file downloaded from
 // https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md
 func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
-	_, err := ft.db.Exec(fmt.Sprintf(`
-	CREATE TABLE %s (
+	_, err := ft.db.Exec(`
+	CREATE TABLE fasttext(
 		word TEXT UNIQUE,
 		emb BLOB
-	);
-	`, ft.tablename))
+	);`)
 	if err != nil {
 		return err
 	}
-	stmt, err := ft.db.Prepare(fmt.Sprintf(`
-	INSERT INTO %s(word, emb) VALUES(?, ?);
-	`, ft.tablename))
+	stmt, err := ft.db.Prepare(`INSERT INTO fasttext(word, emb) VALUES(?, ?);`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	for emb := range readWordEmbdFile(wordEmbFile) {
-		binVec := vecToBytes(emb.Vec, ft.byteOrder)
+	for emb := range readwordEmbdFile(wordEmbFile) {
+		binVec := vecToBytes(emb.Vec, ByteOrder)
 		if _, err := stmt.Exec(emb.Word, binVec); err != nil {
 			return err
 		}
 	}
 	// Indexing on words
-	_, err = ft.db.Exec(fmt.Sprintf(`
-	CREATE INDEX ind_word ON %s(word);
-	`, ft.tablename))
+	_, err = ft.db.Exec(`CREATE INDEX ind_word ON fasttext(word);`)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
-	out := make(chan *WordEmb)
+type wordEmb struct {
+	Word string
+	Vec  []float64
+}
+
+func readwordEmbdFile(wordEmbFile io.Reader) chan *wordEmb {
+	out := make(chan *wordEmb)
 	go func() {
 		defer close(out)
 		scanner := bufio.NewScanner(wordEmbFile)
@@ -186,7 +207,7 @@ func readWordEmbdFile(wordEmbFile io.Reader) chan *WordEmb {
 				}
 				vec[i] = sf
 			}
-			out <- &WordEmb{
+			out <- &wordEmb{
 				Word: word,
 				Vec:  vec,
 			}
