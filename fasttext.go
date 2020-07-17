@@ -105,10 +105,6 @@ func NewFastTextInMem(dbFilename string) *FastText {
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(`CREATE INDEX inx_ft ON fasttext(word);`)
-	if err != nil {
-		panic(err)
-	}
 	return &FastText{
 		db: db,
 	}
@@ -155,11 +151,6 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 		if _, err := stmt.Exec(emb.Word, binVec); err != nil {
 			return err
 		}
-	}
-	// Indexing on words
-	_, err = ft.db.Exec(`CREATE INDEX ind_word ON fasttext(word);`)
-	if err != nil {
-		return err
 	}
 	return nil
 }
