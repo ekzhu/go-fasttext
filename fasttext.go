@@ -1,6 +1,6 @@
 /*
 Package fasttext provides a simple wrapper for Facebook
-fastText dataset (https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md).
+fastText dataset (https://fasttext.cc/docs/en/crawl-vectors.html).
 It allows fast look-up of word embeddings from persistent data store (SQLite3).
 
 Installation
@@ -16,7 +16,8 @@ you can initialize the SQLite3 database (in your code):
 	)
 	...
 	ft := fasttext.NewFastText("/path/to/sqlite3/file")
-	err := ft.BuilDB("/path/to/word/embedding/.vec/file")
+	vecFile, err := os.Open("/path/to/word/embedding/.vec/file")
+	err = ft.BuildDB(vecFile)
 
 This will create a new file on your disk for the SQLite3 database.
 Once the above step is finished, you can start looking up word embeddings
@@ -104,10 +105,6 @@ func NewFastTextInMem(dbFilename string) *FastText {
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(`CREATE INDEX inx_ft ON fasttext(word);`)
-	if err != nil {
-		panic(err)
-	}
 	return &FastText{
 		db: db,
 	}
@@ -132,9 +129,9 @@ func (ft *FastText) GetEmb(word string) ([]float64, error) {
 	return bytesToVec(binVec, ByteOrder)
 }
 
-// BuildDB initialize the SQLite3 database by importing the word embeddings
+// BuildDB initializes the SQLite3 database by importing the word embeddings
 // from the .vec file downloaded from
-// https://github.com/facebookresearch/fastText/blob/master/pretrained-vectors.md
+// https://fasttext.cc/docs/en/crawl-vectors.html
 func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 	_, err := ft.db.Exec(`
 	CREATE TABLE fasttext(
@@ -154,11 +151,6 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 		if _, err := stmt.Exec(emb.Word, binVec); err != nil {
 			return err
 		}
-	}
-	// Indexing on words
-	_, err = ft.db.Exec(`CREATE INDEX ind_word ON fasttext(word);`)
-	if err != nil {
-		return err
 	}
 	return nil
 }
