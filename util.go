@@ -14,7 +14,7 @@ func vecToBytes(vec []float64, order binary.ByteOrder) []byte {
 }
 
 func bytesToVec(data []byte, order binary.ByteOrder) ([]float64, error) {
-	size := len(data) / 8
+	size := len(data) / 4
 	vec := make([]float64, size)
 	buf := bytes.NewReader(data)
 	var v float32
