@@ -29,7 +29,7 @@ Once the above step is finished, you can start looking up word embeddings
 	}
 	fmt.Println(emb)
 
-Each word embedding vector is a slice of float64 with length of 300.
+Each word embedding vector is a slice of float32 with length of 300.
 
 Note that you only need to initialize the SQLite3 database once.
 The next time you use it you can skip the call to BuildDB.
@@ -117,7 +117,7 @@ func (ft *FastText) Close() error {
 }
 
 // GetEmb returns the word embedding of the given word.
-func (ft *FastText) GetEmb(word string) ([]float64, error) {
+func (ft *FastText) GetEmb(word string) ([]float32, error) {
 	var binVec []byte
 	err := ft.db.QueryRow(`SELECT emb FROM fasttext WHERE word=?;`, word).Scan(&binVec)
 	if err == sql.ErrNoRows {
@@ -157,7 +157,7 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 
 type wordEmb struct {
 	Word string
-	Vec  []float64
+	Vec  []float32
 }
 
 func readwordEmbdFile(wordEmbFile io.Reader) chan *wordEmb {
@@ -191,13 +191,13 @@ func readwordEmbdFile(wordEmbFile io.Reader) chan *wordEmb {
 					embSize, len(vecStrs), line, word)
 				panic(msg)
 			}
-			vec := make([]float64, embSize)
+			vec := make([]float32, embSize)
 			for i := 0; i < embSize; i++ {
-				sf, err := strconv.ParseFloat(vecStrs[i], 64)
+				sf, err := strconv.ParseFloat(vecStrs[i], 32)
 				if err != nil {
 					panic(err)
 				}
-				vec[i] = sf
+				vec[i] = float32(sf)
 			}
 			out <- &wordEmb{
 				Word: word,
