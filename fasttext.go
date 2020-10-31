@@ -141,7 +141,11 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := ft.db.Prepare(`INSERT INTO fasttext(word, emb) VALUES(?, ?);`)
+	tx, err := ft.db.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare(`INSERT INTO fasttext(word, emb) VALUES(?, ?);`)
 	if err != nil {
 		return err
 	}
@@ -152,6 +156,7 @@ func (ft *FastText) BuildDB(wordEmbFile io.Reader) error {
 			return err
 		}
 	}
+	tx.Commit()
 	return nil
 }
 
